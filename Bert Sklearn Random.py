@@ -39,45 +39,28 @@ model = BertModel.from_pretrained('bert-base-uncased').to(device)
 
 #_________________EMBEDDING TEXT (with GPU)_______________________________
 def get_bert_embeddings(texts):
-    embeddings = []
-    for text in tqdm(texts, desc="Encoding"):
-        inputs = tokenizer(text, return_tensors='pt', padding=True, truncation=True, max_length=512).to(device)
-        with torch.no_grad():
-            outputs = model(**inputs)
-
-        # Average the token embeddings
-        embeddings.append(outputs.last_hidden_state.mean(dim=1).cpu().numpy())
-    return np.vstack(embeddings)
-
-#_________________CLEANING TEXT_______________________________
-
-# Text cleaning function
-def cleaning_text(text):
-
-    text = text.lower()
+    # Tokenize all texts at once
+    inputs = tokenizer(texts, return_tensors='pt', padding=True, truncation=True, max_length=8).to(device)
     
-    # Remove details
-    #text = re.sub(r'[^a-z\s]', '', text)
-    
-    # Remove stopwords
-    #stop_words = set(stopwords.words('english'))
+    with torch.no_grad():
+        # Pass the inputs through BERT
+        outputs = model(**inputs)
 
-    # Rejoin text
-    #text = ' '.join([word for word in text.split() if word not in stop_words])
+    # Average the token embeddings across the sequence length
+    embeddings = outputs.last_hidden_state.mean(dim=1).cpu().numpy()
     
-    return text
+    return embeddings
 
 
 #_________________GET REVIEWS TEXT_______________________________
 
 # Load dataset
-data = pd.read_csv('IMDB Dataset.csv', encoding='latin-1')
+data = pd.read_csv('Education.csv', encoding='latin-1')
 
 # Renames to text and label
-data = data.rename(columns={'review': 'text', 'sentiment': 'label'})
+data = data.rename(columns={'Text': 'text', 'Label': 'label'})
 
-# Only take label and text
-data = data[["label", "text"]]
+print(data)
 
 #___________________Distubution Between positive and Negative_________________
 
@@ -103,13 +86,16 @@ data.drop_duplicates(inplace=True)
 data['label'] = data['label'].map({'positive': 1, 'negative': 0})
 
 # Clean Text
-data['text'] = data['text'].apply(cleaning_text)
+data['text'] = data['text']
 
 #___________________TEST AND TRAIN SETS_____________________
 # Split into x an y for train and test sets
 x = data['text']
 y = data['label']
 X_train, X_test, y_train, y_test = train_test_split(x, y, test_size=0.5, random_state=0)
+
+X_train = X_train.astype(str).tolist()
+X_test = X_test.astype(str).tolist()
 
 #___________________embedding _____________________
 X_train_embeddings = get_bert_embeddings(X_train)
@@ -141,6 +127,6 @@ plt.show()
 
 # Display the results
 print('Accuracy: ', accuracy_score(y_test, final_predictions))
-print('Precision: ', precision_score(y_test, final_predictions))
-print('Recall: ', recall_score(y_test, final_predictions))
-print('F1 Score: ', f1_score(y_test, final_predictions))
+print('Precision: ', precision_score(y_test, final_predictions, average='macro'))
+print('Recall: ', recall_score(y_test, final_predictions, average='macro'))
+print('F1 Score: ', f1_score(y_test, final_predictions, average='macro'))

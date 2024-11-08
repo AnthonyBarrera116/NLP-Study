@@ -25,7 +25,7 @@ from sklearn.metrics import classification_report
 
 # Hyperparameters
 bert_model_name = 'bert-large-uncased'
-num_classes = 1
+num_classes = 2
 max_length = 128
 batch_size = 64
 num_epochs = 4
@@ -164,7 +164,7 @@ model = BERTClassifier(bert_model_name, num_classes).to(device)
 
 # Optimizer and loss
 optimizer = torch.optim.Adam(model.parameters(),lr=learning_rate)
-criterion = nn.BCELoss()
+criterion = nn.CrossEntropyLoss()
 scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=0, num_training_steps=len(train_dataloader) * num_epochs)
 
 #________________________Training___________________________________________
@@ -232,20 +232,23 @@ actual_labels = []
 with torch.no_grad():
     
     # Test in batches
-    for batch in test_dataloader:  # Use the test_dataloader here
+    for batch in test_dataloader: 
 
-        # load test batch text and label
-        inputs, labels = batch[0].to(device), batch[1].to(device)
+        # Load test batch text and label using the correct keys
+        input_ids = batch['input_ids'].to(device)
+        attention_mask = batch['attention_mask'].to(device)
+        labels = batch['label'].to(device)
 
         # Outputs
-        outputs = model(inputs)
+        outputs = model(input_ids=input_ids, attention_mask=attention_mask)
 
         # Prediction
         _, preds = torch.max(outputs, dim=1)
 
-        # append to prediction and actual list 
+        # Append to prediction and actual label lists 
         predictions.extend(preds.cpu().tolist())
         actual_labels.extend(labels.cpu().tolist())
+
 
 # Confusion matrix
 confusion_mat = confusion_matrix(actual_labels, predictions)
